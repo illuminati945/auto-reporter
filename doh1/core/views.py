@@ -1,5 +1,7 @@
 import calendar
 import json
+import queue
+import threading
 import time
 import re
 import urllib
@@ -10,6 +12,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
+
+from core.loggers import ThreadQueueHandler, get_ui_logger
 
 from .models import Soldier
 from .services import run_attendance_for_user
@@ -127,7 +131,6 @@ def update_cookies(request):
 # ---------------------------------------------------------
 # STREAMING REPORT LOGIC
 # ---------------------------------------------------------
-
 def execute_report(request):
     if 'user_id' not in request.session:
         return redirect('login')
@@ -137,72 +140,152 @@ def execute_report(request):
         content_type='text/html'
     )
     response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
     return response
 
-
 def stream_generator(request):
+    # 1. Render Loading Screen
     yield render_to_string('loading_terminal.html')
-    
-    def log(message, status="info"):
-        color = "text-slate-300"
-        if status == "success": color = "text-green-400"
-        elif status == "error": color = "text-red-400"
-        elif status == "warning": color = "text-yellow-400"
+
+    # Helper for JS
+    def format_log(log_entry):
+        # 1. Determine Color
+        color_class = "text-slate-300"
+        if log_entry['level'] == 'success': color_class = "text-emerald-400"
+        elif log_entry['level'] == 'error': color_class = "text-red-400"
+        elif log_entry['level'] == 'warning': color_class = "text-amber-400"
         
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        return f"""
-        <script>
-            addLog('<span class="{color}">[{timestamp}]</span> {message}');
-        </script>
-        """
+        # 2. Escape content
+        timestamp = log_entry['time']
+        msg_content = str(log_entry['msg']).replace("'", "\\'") # Escape single quotes for JS
+        
+        # 3. Build HTML String (Pure Python)
+        html_payload = (
+            f'<li class="flex space-x-3 group animate-fade-in-up">'
+            f'<span class="text-slate-600 flex-shrink-0 select-none w-16 font-mono">{timestamp}</span>'
+            f'<div class="{color_class} flex-1 break-words font-mono">{msg_content}</div>'
+            f'</li>'
+        )
+        
+        # 4. Return simple JS call
+        return f"<script>addLog('{html_payload}');</script>"
+
+    # 2. Setup
+    log_queue = queue.Queue()
+    results_container = {}
+    captured_logs_history = []
+    
+    # Get ID of the current (Main) thread so we can capture its logs too
+    main_thread_id = threading.get_ident()
+
+    # Worker Function
+    def worker(soldier_obj):
+        try:
+            res, updated = run_attendance_for_user(soldier_obj)
+            results_container['data'] = (res, updated)
+        except Exception as e:
+            results_container['error'] = e
+
+    # Acquire Logger
+    logger = get_ui_logger()
+    handler = None
 
     try:
-        yield log("Initializing user session...", "info")
+        # Initial Log (Manually yielded because handler isn't attached yet)
+        start_msg = {'time': datetime.now().strftime("%H:%M:%S"), 'level': 'info', 'msg': 'Initializing...'}
+        yield format_log(start_msg)
+        captured_logs_history.append(start_msg)
+
         soldier = Soldier.objects.get(id=request.session['user_id'])
-        
         if not soldier.cookies:
-            yield log("Error: No cookies found.", "error")
-            time.sleep(1.5)
-            yield "<script>window.location.href = '/dashboard/';</script>"
+            # ... Error handling ...
             return
 
-        yield log(f"User identified: {soldier.personal_id}", "success")
-        yield log("Starting Selenium engine...", "warning")
+        # --- START THREAD ---
+        t = threading.Thread(target=worker, args=(soldier,))
+        t.start()
         
-        # Run logic
-        results, cookie_updated = run_attendance_for_user(soldier)
+        # --- ATTACH HANDLER (Monitor Worker AND Main Thread) ---
+        # We pass a LIST of thread IDs: [Main, Worker]
+        handler = ThreadQueueHandler(log_queue)
+        logger.addHandler(handler)
+
+        # Now we can use standard logger in the Main Thread too!
+        logger.warning("Background worker started.")
+
+        # --- LOOP 1: WAIT FOR WORKER ---
+        while t.is_alive() or not log_queue.empty():
+            try:
+                log_entry = log_queue.get(timeout=1.0)
+                
+                captured_logs_history.append(log_entry)
+                yield format_log(log_entry)
+
+            except queue.Empty:
+                yield " "
+                
+        if 'error' in results_container:
+            raise results_container['error']
         
-        yield log("Automation finished. Processing results...", "info")
+        results, cookie_updated = results_container.get('data', ([], False))
 
         if cookie_updated:
-            yield log("Session rotated. Cookies updated in database.", "success")
+            logger.info("Session cookies successfully rotated.")
             request.session['cookie_updated_flag'] = True
 
-        # Sanitize data for session storage
+        logger.info(f"Processing {len(results)} days of attendance data...")
+        
+        # Sanitize Results
         processed_results = []
         for res in results:
             clean_res = res.copy()
-            # Ensure date is string
             if 'date' in clean_res and isinstance(clean_res['date'], (date, datetime)):
                 clean_res['date'] = clean_res['date'].strftime("%d.%m.%Y")
-            # Remove any non-serializable keys
-            if 'dt' in clean_res: 
-                del clean_res['dt']
+            if 'dt' in clean_res: del clean_res['dt']
             processed_results.append(clean_res)
-            
+
         request.session['report_results'] = processed_results
+        
+        logger.info("Saving session state...")
+        
+        # --- SAVE LOGS TO SESSION ---
+        # We need to grab whatever is currently in the queue to add to history
+        while not log_queue.empty():
+            log_entry = log_queue.get()
+            captured_logs_history.append(log_entry)
+            yield format_log(log_entry)
+            
+        request.session['execution_logs'] = captured_logs_history
         request.session.save()
+
+        # Final Log
+        logger.info("All tasks complete. Redirecting...")
+
+        # --- LOOP 2: FLUSH REMAINING LOGS ---
+        # Catch the logs we just generated ("Saving session", "Redirecting")
+        while not log_queue.empty():
+            log_entry = log_queue.get()
+            # We don't append to session history here because session is already saved,
+            # but we yield them to the screen so the user sees them.
+            yield format_log(log_entry)
+
+        # --- CLEANUP ---
+        logger.removeHandler(handler)
         
-        yield log("Generating calendar...", "info")
-        time.sleep(0.5) 
+        # Redirect
+        yield "<script>transitionToResults();</script>"
         
-        yield log("Done! Redirecting...", "success")
+        # 2. Wait slightly for the CSS transition (700ms) to mostly finish
+        time.sleep(1) 
+        
+        # 3. Redirect
         yield "<script>window.location.href = '/report/view/';</script>"
-
     except Exception as e:
-        print(f"Streaming Error: {e}")
-        yield log(f"Critical Error: {str(e)}", "error")
-
+        if handler: logger.removeHandler(handler)
+        print(f"Stream Error: {e}")
+        err_msg = {'time': datetime.now().strftime("%H:%M:%S"), 'level': 'error', 'msg': f"Error: {str(e)}"}
+        yield format_log(err_msg)
+        yield "<script>window.location.href = '/report/view/';</script>"
 
 def view_report_results(request):
     if 'user_id' not in request.session:
@@ -212,7 +295,8 @@ def view_report_results(request):
     results = [r.copy() for r in raw_results]
 
     cookie_updated = request.session.pop('cookie_updated_flag', False)
-    
+
+    execution_logs = request.session.get('execution_logs', [])
     # 2. Process Results (Date Parsing & Sorting)
     for res in results:
         if 'date' in res and res['date']:
@@ -279,7 +363,8 @@ def view_report_results(request):
     context = {
         'results': results,
         'calendars': cal_data,
-        'cookie_updated': cookie_updated 
+        'cookie_updated': cookie_updated ,
+        'execution_logs': execution_logs
     }
     
     return render(request, 'results.html', context)

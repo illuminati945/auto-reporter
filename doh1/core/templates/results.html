@@ -1,68 +1,139 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="mb-6 flex justify-between items-center">
-    <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-white transition flex items-center">
-        <i class="fas fa-arrow-left mr-2"></i> Dashboard
-    </a>
-    <h1 class="text-2xl font-bold text-white">Submission Report</h1>
-</div>
+<style>
+    /* 1. Prevent Layout Jitter */
+    /* Forces a scrollbar on this page so the width matches the loading page exactly */
+    html,
+    body {
+        overflow-y: scroll;
+    }
 
-<div class="space-y-8 mb-32"> {% for cal in calendars %}
-    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
-        <div class="bg-slate-900 px-6 py-3 border-b border-slate-700">
-            <h2 class="font-bold text-lg text-blue-400">{{ cal.name }} {{ cal.year }}</h2>
-        </div>
+    /* 2. Slide Down Animation for Calendar */
+    /* Moves the calendar from -40px (invisible) to 0px (visible) */
+    @keyframes slideDownFade {
+        0% {
+            opacity: 0;
+            transform: translateY(-40px);
+        }
 
-        <div class="p-4">
-            <div class="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-bold text-slate-500 uppercase">
-                <div>Sun</div>
-                <div>Mon</div>
-                <div>Tue</div>
-                <div>Wed</div>
-                <div>Thu</div>
-                <div>Fri</div>
-                <div>Sat</div>
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Apply the movement to the calendar container */
+    .animate-slide-down {
+        animation: slideDownFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+</style>
+
+<div class="animate-slide-down">
+
+    <div class="mb-6 flex justify-between items-center">
+        <a href="{% url 'dashboard' %}" class="text-slate-400 hover:text-white transition flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Dashboard
+        </a>
+        <h1 class="text-2xl font-bold text-white">Submission Report</h1>
+    </div>
+
+    <div class="space-y-8 mb-12">
+        {% for cal in calendars %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-xl">
+            <div class="bg-slate-900 px-6 py-3 border-b border-slate-700">
+                <h2 class="font-bold text-lg text-blue-400">{{ cal.name }} {{ cal.year }}</h2>
             </div>
 
-            {% for week in cal.weeks %}
-            <div class="grid grid-cols-7 gap-2 mb-2">
-                {% for day in week %}
-                {% if day is None %}
-                <div class="h-14"></div>
-                {% else %}
-                {% if day.result %}
-                <button onclick="openModal(this.getAttribute('data-report'))"
-                    data-report="{{ day.result.json_str|force_escape }}" class="group relative h-14 w-full rounded-lg border flex flex-col items-center justify-center transition hover:scale-105 active:scale-95
-                            {% if day.result.success %}
-                                bg-green-900/40 border-green-600 text-green-200
-                            {% else %}
-                                bg-red-900/40 border-red-600 text-red-200
-                            {% endif %}">
-
-                    <span class="text-sm font-bold">{{ day.day }}</span>
-                    <div class="mt-1">
-                        {% if day.result.success %}
-                        <i class="fas fa-check-circle text-xs text-green-400"></i>
-                        {% else %}
-                        <i class="fas fa-times-circle text-xs text-red-400"></i>
-                        {% endif %}
-                    </div>
-                </button>
-                {% else %}
-                <div class="h-14 rounded-lg border flex flex-col items-center justify-center 
-                            bg-slate-700/20 border-slate-700/50 text-slate-500 cursor-default opacity-50">
-                    <span class="text-sm">{{ day.day }}</span>
+            <div class="p-4">
+                <div class="grid grid-cols-7 gap-2 mb-2 text-center text-xs font-bold text-slate-500 uppercase">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
                 </div>
-                {% endif %}
-                {% endif %}
+
+                {% for week in cal.weeks %}
+                <div class="grid grid-cols-7 gap-2 mb-2">
+                    {% for day in week %}
+                    {% if day is None %}
+                    <div class="h-14"></div>
+                    {% else %}
+                    {% if day.result %}
+                    <button onclick="openModal(this.getAttribute('data-report'))"
+                        data-report="{{ day.result.json_str|force_escape }}" class="group relative h-14 w-full rounded-lg border flex flex-col items-center justify-center transition hover:scale-105 active:scale-95
+                                            {% if day.result.success %}
+                                                bg-green-900/40 border-green-600 text-green-200
+                                            {% else %}
+                                                bg-red-900/40 border-red-600 text-red-200
+                                            {% endif %}">
+
+                        <span class="text-sm font-bold">{{ day.day }}</span>
+                        <div class="mt-1">
+                            {% if day.result.success %}
+                            <i class="fas fa-check-circle text-xs text-green-400"></i>
+                            {% else %}
+                            <i class="fas fa-times-circle text-xs text-red-400"></i>
+                            {% endif %}
+                        </div>
+                    </button>
+                    {% else %}
+                    <div
+                        class="h-14 rounded-lg border flex flex-col items-center justify-center 
+                                            bg-slate-700/20 border-slate-700/50 text-slate-500 cursor-default opacity-50">
+                        <span class="text-sm">{{ day.day }}</span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </div>
                 {% endfor %}
             </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+<div class="w-full max-w-4xl mx-auto px-4 z-10">
+    <div class="flex items-center space-x-2 mb-4 px-2">
+        <i class="fas fa-list-ul text-slate-500"></i>
+        <h3 class="text-slate-400 font-semibold text-sm uppercase tracking-wide">Activity Log</h3>
+    </div>
+
+    <div
+        class="bg-slate-950/50 rounded-lg border border-slate-800 p-6 font-mono text-xs overflow-y-auto h-80 shadow-2xl shadow-black/50">
+        <ul class="space-y-2">
+            {% for log in execution_logs %}
+            <li class="flex space-x-3 group">
+                <span class="text-slate-600 flex-shrink-0 select-none w-16 font-mono">{{ log.time }}</span>
+
+                <div class="flex-1 break-words font-mono">
+                    {% if log.level == 'error' %}
+                    <span class="text-red-400 font-medium">{{ log.msg }}</span>
+                    {% elif log.level == 'warning' %}
+                    <span class="text-amber-400">{{ log.msg }}</span>
+                    {% elif log.level == 'success' %}
+                    <span class="text-emerald-400">{{ log.msg }}</span>
+                    {% else %}
+                    <span class="text-slate-300">{{ log.msg }}</span>
+                    {% endif %}
+                </div>
+            </li>
+            {% empty %}
+            <li class="text-slate-600 italic">No activity recorded for this session.</li>
             {% endfor %}
+        </ul>
+
+        <div class="mt-4 pt-4 border-t border-slate-800/50 text-slate-700 flex items-center space-x-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+            <span>End of report</span>
         </div>
     </div>
-    {% endfor %}
 </div>
+
 
 <div id="modalOverlay" onclick="closeModal()"
     class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300 opacity-0"></div>
@@ -82,20 +153,33 @@
     </div>
 
     <div class="flex-1 overflow-y-auto p-4 font-mono text-sm space-y-4">
-
-        <div id="modalStatus" class="p-3 rounded-lg text-center font-bold border">
-        </div>
+        <div id="modalStatus" class="p-3 rounded-lg text-center font-bold border"></div>
 
         <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 overflow-x-auto">
             <h4 class="text-xs uppercase text-slate-500 font-bold mb-2">Full Request & Response Log</h4>
-            <div id="jsonContainer" class="json-tree text-slate-300">
-            </div>
+            <div id="jsonContainer" class="json-tree text-slate-300"></div>
         </div>
     </div>
 </div>
 
+{% if cookie_updated %}
+<div id="cookieToast" onclick="dismissToast()"
+    class="fixed top-0 left-1/2 transform -translate-x-1/2 -translate-y-full opacity-0 z-50 mt-2 transition-all duration-700 cubic-bezier(0.16, 1, 0.3, 1) cursor-pointer w-[90%] max-w-sm sm:w-auto">
+    <div
+        class="bg-slate-800 border border-green-500/50 rounded-2xl shadow-2xl px-4 py-3 flex items-center space-x-3 backdrop-blur-md bg-opacity-95">
+        <div class="w-8 h-8 bg-green-900/50 rounded-full flex items-center justify-center flex-shrink-0">
+            <i class="fas fa-magic text-sm text-green-400"></i>
+        </div>
+        <div class="flex flex-col min-w-0">
+            <h3 class="font-bold text-white text-sm truncate">Session Auto-Healed</h3>
+            <p class="text-slate-400 text-xs truncate">Security keys rotated & saved</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+
 <style>
-    /* Styling for the JSON Tree */
     .json-tree details {
         margin-left: 10px;
     }
@@ -110,9 +194,6 @@
         display: none;
     }
 
-    /* Hide default triangle */
-
-    /* Custom Arrow */
     .json-tree summary::before {
         content: '▶';
         display: inline-block;
@@ -153,16 +234,15 @@
     /* Slate-400 */
 </style>
 
+
 <script>
+    // --- MODAL CONTROLS ---
     const modal = document.getElementById('resultModal');
     const overlay = document.getElementById('modalOverlay');
     const container = document.getElementById('jsonContainer');
 
     function openModal(jsonString) {
-        // 1. Parse Data
         const data = JSON.parse(jsonString);
-
-        // 2. Populate Header & Status
         document.getElementById('modalTitle').innerText = "Attendance Report";
         document.getElementById('modalDate').innerText = data.date;
 
@@ -175,12 +255,10 @@
             statusDiv.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> ${data.message}`;
         }
 
-        // 3. Render Recursive JSON
         container.innerHTML = createJsonTree(data);
 
-        // 4. Show Modal (Slide Up)
+        // Show Animation
         overlay.classList.remove('hidden');
-        // Small timeout to allow removing 'hidden' to render, then animate opacity
         requestAnimationFrame(() => {
             overlay.classList.remove('opacity-0');
             modal.classList.remove('translate-y-full');
@@ -190,8 +268,6 @@
     function closeModal() {
         modal.classList.add('translate-y-full');
         overlay.classList.add('opacity-0');
-
-        // Wait for animation to finish before hiding display
         setTimeout(() => {
             overlay.classList.add('hidden');
         }, 300);
@@ -204,51 +280,19 @@
         if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
         if (typeof obj === 'string') return `<span class="json-string">"${obj}"</span>`;
 
-        // It's an Object or Array
         const isArray = Array.isArray(obj);
         let html = '';
-
-        // Start Details
-        html += `<details open>`; // Default open
-
-        // Summary (The clickable part)
-        html += `<summary>`;
-        html += isArray ? `Array [${obj.length}]` : `Object {${Object.keys(obj).length}}`;
-        html += `</summary>`;
-
-        // Children
+        html += `<details open>`;
+        html += `<summary>${isArray ? `Array [${obj.length}]` : `Object {${Object.keys(obj).length}}`}</summary>`;
         html += `<div class="ml-2 pl-2 border-l border-slate-700">`;
         for (const key in obj) {
-            html += `<div>`;
-            html += `<span class="json-key">${key}:</span> `;
-            html += createJsonTree(obj[key]);
-            html += `</div>`;
+            html += `<div><span class="json-key">${key}:</span> ${createJsonTree(obj[key])}</div>`;
         }
-        html += `</div>`;
-        html += `</details>`;
-
+        html += `</div></details>`;
         return html;
     }
-</script>
 
-
-<!-- 2. AUTO-HEAL TOAST NOTIFICATION -->
-{% if cookie_updated %}
-
-<div id="cookieToast" onclick="dismissToast()"
-    class="fixed top-0 left-1/2 transform -translate-x-1/2 -translate-y-full opacity-0 z-50 mt-2 transition-all duration-700 cubic-bezier(0.16, 1, 0.3, 1) cursor-pointer w-[90%] max-w-sm sm:w-auto">
-    <div
-        class="bg-slate-800 border border-green-500/50 rounded-2xl shadow-2xl px-4 py-3 flex items-center space-x-3 backdrop-blur-md bg-opacity-95">
-        <div class="w-8 h-8 bg-green-900/50 rounded-full flex items-center justify-center flex-shrink-0">
-            <i class="fas fa-magic text-sm text-green-400"></i>
-        </div>
-        <div class="flex flex-col min-w-0">
-            <h3 class="font-bold text-white text-sm truncate">Session Auto-Healed</h3>
-            <p class="text-slate-400 text-xs truncate">Security keys rotated & saved</p>
-        </div>
-    </div>
-</div>
-<script>
+    // --- TOAST CONTROLS ---
     function dismissToast() {
         const toast = document.getElementById('cookieToast');
         if (toast) {
@@ -260,61 +304,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         const toast = document.getElementById('cookieToast');
         if (toast) {
-            // Force browser reflow
-            void toast.offsetWidth;
-
-            // Slide Down & Fade In
+            void toast.offsetWidth; // Force reflow
             requestAnimationFrame(() => {
                 toast.classList.remove('-translate-y-full');
                 toast.classList.remove('opacity-0');
             });
-
-            // Slide Up & Fade Out automatically
-            setTimeout(() => {
-                dismissToast();
-            }, 8000);
+            setTimeout(() => { dismissToast(); }, 8000);
         }
     });
 </script>
-{% endif %}
-
-
-<div class="mt-12 mb-24">
-    <div class="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
-        <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
-                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
-                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
-            </div>
-            <div class="text-xs text-slate-400 font-mono font-bold uppercase">
-                <i class="fas fa-terminal mr-2"></i>Execution Log
-            </div>
-        </div>
-
-        <div class="h-64 p-4 overflow-y-auto font-mono text-xs space-y-1">
-            {% for log in execution_logs %}
-            <div class="border-l-2 border-transparent hover:border-slate-700 pl-2 transition-colors flex">
-                <span class="text-slate-500 mr-3">[{{ log.time }}]</span>
-                {% if log.level == 'error' %}
-                <span class="text-red-400">{{ log.msg }}</span>
-                {% elif log.level == 'warning' %}
-                <span class="text-yellow-400">{{ log.msg }}</span>
-                {% elif log.level == 'success' %}
-                <span class="text-green-400">{{ log.msg }}</span>
-                {% else %}
-                <span class="text-slate-300">{{ log.msg }}</span>
-                {% endif %}
-            </div>
-            {% empty %}
-            <div class="text-slate-600 italic">No logs available for this session.</div>
-            {% endfor %}
-
-            <div class="mt-2 text-slate-500">
-                <span class="text-green-500">➜</span> _
-            </div>
-        </div>
-    </div>
-</div>
 
 {% endblock %}

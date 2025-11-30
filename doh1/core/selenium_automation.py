@@ -6,6 +6,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+from .loggers import get_ui_logger
+
+logger = get_ui_logger()
+
+
 # --- Constants ---
 TARGET_URL = "https://one.prat.idf.il/"
 WAF_WAIT_TIME = 5
@@ -37,14 +42,14 @@ def _inject_cookies(driver: webdriver.Chrome, cookies: Dict[str, str]) -> None:
     """Injects cookies into the browser."""
     if not cookies:
         return
-    print(f"Injecting {len(cookies)} cookies...", flush=True)
+    logger.info(f"Injecting {len(cookies)} cookies...")
     for name, value in cookies.items():
         try:
             driver.add_cookie({
                 'name': name, 'value': value, 'path': '/', 'secure': True
             })
         except Exception as e:
-            print(f"Warning: Failed to inject cookie '{name}': {e}")
+            logger.info(f"Warning: Failed to inject cookie '{name}': {e}")
 
 def _inject_storage(driver: webdriver.Chrome, data: Dict[str, str], storage_type: str) -> None:
     """
@@ -54,7 +59,7 @@ def _inject_storage(driver: webdriver.Chrome, data: Dict[str, str], storage_type
     if not data:
         return
         
-    print(f"Injecting {len(data)} items into {storage_type}...", flush=True)
+    logger.info(f"Injecting {len(data)} items into {storage_type}...")
     try:
         # We use execute_script with arguments to safely handle quotes/special chars
         for key, value in data.items():
@@ -64,14 +69,14 @@ def _inject_storage(driver: webdriver.Chrome, data: Dict[str, str], storage_type
                 value
             )
     except Exception as e:
-        print(f"Warning: Failed to inject {storage_type}: {e}")
+        logger.info(f"Warning: Failed to inject {storage_type}: {e}")
 
 def _get_storage_data(driver: webdriver.Chrome, storage_type: str) -> Dict[str, str]:
     """Extracts all data from localStorage or sessionStorage."""
     try:
         return driver.execute_script(f"return {{...window.{storage_type}}};")
     except Exception as e:
-        print(f"Warning: Could not retrieve {storage_type}: {e}")
+        logger.info(f"Warning: Could not retrieve {storage_type}: {e}")
         return {}
 
 def refresh_with_selenium(
@@ -83,14 +88,14 @@ def refresh_with_selenium(
     Restores Cookies, LocalStorage, and SessionStorage, visits the site,
     and returns the fresh (potentially updated) session data.
     """
-    print("Starting Selenium Preflight...", flush=True)
+    logger.info("Starting Selenium Preflight...")
     driver = None
     
     try:
         driver = _setup_driver()
         
         # 1. Navigate to domain (Required for Same-Origin Policy)
-        print(f"Navigating to {TARGET_URL}...")
+        logger.info(f"Navigating to {TARGET_URL}...")
         driver.get(TARGET_URL)
         
         # 2. Inject state (Cookies + Storage)
@@ -99,16 +104,17 @@ def refresh_with_selenium(
         _inject_storage(driver, session_storage or {}, "sessionStorage")
         
         # 3. Refresh to force the app to load using the injected data
-        print("Refreshing page to trigger app load with injected state...")
+        logger.info("Refreshing page to trigger app load with injected state...")
         driver.refresh()
         
-        # 4. Wait for App Load / WAF
-        time.sleep(WAF_WAIT_TIME)
+        for _ in range(20): 
+            if "finish" in driver.current_url: break
+            time.sleep(0.5)
         
         # 5. Validation Check
         current_url = driver.current_url.lower()
         if "login" in current_url or "signin" in current_url:
-            print("Refresh Failed: Redirected to login page.")
+            logger.info("Refresh Failed: Redirected to login page.")
             return None
 
         # 6. Harvest Fresh Data
@@ -121,13 +127,13 @@ def refresh_with_selenium(
 
         fresh_data['cookies'] = clean_cookies(fresh_data['cookies'])
         fresh_data['session_storage'] = clean_cookies(fresh_data['session_storage'])
-        
-        print(f"Success. Captured {len(fresh_data['cookies'])} Cookies.")
+
+        logger.info(f"Success. Captured {len(fresh_data['cookies'])} Cookies.")
 
         return fresh_data
 
     except Exception as e:
-        print(f"Selenium Error: {e}")
+        logger.info(f"Selenium Error: {e}")
         return None
     finally:
         if driver:

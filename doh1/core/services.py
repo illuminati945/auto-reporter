@@ -77,18 +77,18 @@ def send_report(client: httpx.Client, date_obj: datetime.date) -> dict:
             is_true = response.text.strip().lower() == 'true'
             
             if is_true:
-                print(f"[SUCCESS] Updated date for [{date_str}]")
+                logger.info(f"[SUCCESS] Updated date for [{date_str}]")
                 result["success"] = True
                 result["message"] = "Reported successfully"
             else:
-                print(f"[FAIL] API returned false for [{date_str}]")
+                logger.error(f"[FAIL] API returned false for [{date_str}]")
                 result["message"] = "API returned 'false'"
         else:
-            print(f"[ERROR] HTTP {response.status_code} for [{date_str}]")
+            logger.error(f"[ERROR] HTTP {response.status_code} for [{date_str}]")
             result["message"] = f"HTTP {response.status_code}"
             
     except Exception as e:
-        print(f"[EXCEPTION] {e}")
+        logger.error(f"[EXCEPTION] {e}")
         result["message"] = str(e)
 
     return result
@@ -125,7 +125,7 @@ def run_attendance_for_user(soldier: Soldier):
     active_local_storage = soldier.local_storage
     
     if fresh_data:
-        print("Selenium refresh successful. Updating Soldier data.")
+        logger.info("Selenium refresh successful. Updating Soldier data.")
         
         # Unpack fresh data
         soldier.cookies = fresh_data['cookies']
@@ -137,7 +137,7 @@ def run_attendance_for_user(soldier: Soldier):
         active_local_storage = soldier.local_storage
         db_updated = True
     else:
-        print("Selenium refresh skipped or failed. Using existing DB data.")
+        logger.info("Selenium refresh skipped or failed. Using existing DB data.")
 
     # --- 3. Prepare HTTP Client ---
     headers = {
@@ -149,7 +149,7 @@ def run_attendance_for_user(soldier: Soldier):
     token = _extract_auth_token(active_local_storage)
     if token:
         headers["Authorization"] = f"Bearer {token}"
-        print("Injecting Authorization token from Local Storage.")
+        logger.info("Injecting Authorization token from Local Storage.")
 
     results = []
 
@@ -161,7 +161,7 @@ def run_attendance_for_user(soldier: Soldier):
         try:
             client.get(f"{BASE_URL}/secondaries")
         except Exception as e:
-            print(f"HTTP Client Pre-flight warning: {e}")
+            logger.info(f"HTTP Client Pre-flight warning: {e}")
 
         # B. Send Reports Concurrently
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
@@ -180,7 +180,7 @@ def run_attendance_for_user(soldier: Soldier):
             
             # Simple check to see if anything actually changed
             if updated_cookies != active_cookies:
-                print("Cookies rotated during HTTP requests. Updating DB.")
+                logger.info("Cookies rotated during HTTP requests. Updating DB.")
                 soldier.cookies = updated_cookies
                 soldier.save()
                 db_updated = True

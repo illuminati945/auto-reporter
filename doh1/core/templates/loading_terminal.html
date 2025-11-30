@@ -4,74 +4,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Processing Report...</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Processing...</title>
     <style>
-        .blink {
-            animation: blinker 1s linear infinite;
-        }
-
-        @keyframes blinker {
-            50% {
-                opacity: 0;
-            }
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
+        html,
+        body {
+            background-color: #020617;
+            color: white;
+            overflow-y: scroll;
         }
     </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 
-<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col items-center justify-center p-4 font-mono">
+<body class="bg-slate-950 min-h-screen flex flex-col justify-end pb-12 relative">
 
-    <div class="w-full max-w-2xl bg-slate-900 rounded-xl border border-slate-700 shadow-2xl overflow-hidden">
-        <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-                <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+    <div id="log-container"
+        class="w-full max-w-4xl mx-auto px-4 z-10 transition-all duration-700 cubic-bezier(0.16, 1, 0.3, 1) transform -translate-y-[30vh] opacity-0">
+
+        <div class="flex items-center space-x-2 mb-4 px-2">
+            <div id="header-spinner" class="animate-spin text-blue-500 mr-1">
+                <i class="fas fa-circle-notch"></i>
             </div>
-            <div class="text-xs text-slate-400 font-bold">IDF_AUTO_REPORTER.exe</div>
+            <h3 class="text-slate-400 font-semibold text-sm uppercase tracking-wide">Processing Attendance...</h3>
         </div>
 
-        <div id="terminal-window" class="h-96 p-4 overflow-y-auto font-mono text-sm space-y-1 relative">
-            <div class="text-blue-400 mb-4">
-                > Initializing system...<br>
-                > Connecting to secure gateway...
-            </div>
-
-            <div id="logs-container"></div>
-
-            <div id="cursor-line" class="mt-2 text-slate-500">
-                <span class="text-green-500">➜</span> <span class="blink">_</span>
-            </div>
+        <div id="log-box"
+            class="bg-slate-950/50 rounded-lg border border-slate-800 p-6 text-xs overflow-y-auto h-80 shadow-2xl shadow-black/50">
+            <ul id="log-list" class="space-y-2">
+            </ul>
         </div>
     </div>
 
     <script>
-        const container = document.getElementById('terminal-window');
-        const logs = document.getElementById('logs-container');
+        const list = document.getElementById('log-list');
+        const box = document.getElementById('log-box');
+        const container = document.getElementById('log-container');
+        const spinner = document.getElementById('header-spinner');
 
-        // This function is called by the Python generator chunks
-        function addLog(htmlContent) {
-            const div = document.createElement('div');
-            div.className = 'py-0.5 border-l-2 border-transparent hover:border-slate-700 pl-2 transition-colors';
-            div.innerHTML = htmlContent;
-            logs.appendChild(div);
+        // Reveal logs immediately
+        setTimeout(() => {
+            container.classList.remove('opacity-0');
+        }, 50);
 
-            // Auto Scroll to bottom
-            container.scrollTop = container.scrollHeight;
+        function addLog(htmlString) {
+            list.insertAdjacentHTML('beforeend', htmlString);
+            box.scrollTo({ top: box.scrollHeight, behavior: 'smooth' });
+        }
+
+        function transitionToResults() {
+            // 1. Hide the spinner in the header (since processing is done)
+            spinner.classList.add('opacity-0');
+
+            // 2. Slide the logs DOWN to their natural position (0)
+            // This lines them up with the static logs on the next page
+            container.classList.remove('-translate-y-[30vh]');
+            container.classList.add('translate-y-0');
         }
     </script>
+
+    <style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-up {
+            animation: fadeInUp 0.2s ease-out forwards;
+        }
+    </style>
+</body>
+
+</html>
