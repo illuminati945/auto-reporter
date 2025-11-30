@@ -279,4 +279,42 @@
 {% endif %}
 
 
+<div class="mt-12 mb-24">
+    <div class="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+        <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+                <div class="w-3 h-3 rounded-full bg-slate-600"></div>
+            </div>
+            <div class="text-xs text-slate-400 font-mono font-bold uppercase">
+                <i class="fas fa-terminal mr-2"></i>Execution Log
+            </div>
+        </div>
+
+        <div class="h-64 p-4 overflow-y-auto font-mono text-xs space-y-1">
+            {% for log in execution_logs %}
+            <div class="border-l-2 border-transparent hover:border-slate-700 pl-2 transition-colors flex">
+                <span class="text-slate-500 mr-3">[{{ log.time }}]</span>
+                {% if log.level == 'error' %}
+                <span class="text-red-400">{{ log.msg }}</span>
+                {% elif log.level == 'warning' %}
+                <span class="text-yellow-400">{{ log.msg }}</span>
+                {% elif log.level == 'success' %}
+                <span class="text-green-400">{{ log.msg }}</span>
+                {% else %}
+                <span class="text-slate-300">{{ log.msg }}</span>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="text-slate-600 italic">No logs available for this session.</div>
+            {% endfor %}
+
+            <div class="mt-2 text-slate-500">
+                <span class="text-green-500">➜</span> _
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

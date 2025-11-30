@@ -6,75 +6,118 @@
 </div>
 
 <div class="grid gap-6">
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
         <div class="flex justify-between items-center">
             <div>
                 <h2 class="text-xl font-semibold mb-1">Generate Report</h2>
                 <p class="text-slate-400 text-sm">Report attendance for the next 8 days.</p>
             </div>
+
             {% if has_cookies %}
             <a href="{% url 'execute_report' %}"
-                class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold transition shadow-lg shadow-green-900/20">
+                class="px-6 py-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold transition shadow-lg shadow-green-900/20 text-white flex items-center transform hover:scale-105 active:scale-95">
                 <i class="fas fa-play mr-2"></i> Run Now
             </a>
             {% else %}
-            <button disabled class="px-6 py-3 bg-slate-600 text-slate-400 rounded-lg font-bold cursor-not-allowed">
-                Run Now
+            <button disabled
+                class="px-6 py-3 bg-slate-600 text-slate-400 rounded-lg font-bold cursor-not-allowed border border-slate-500/30">
+                <i class="fas fa-ban mr-2"></i> Run Now
             </button>
             {% endif %}
         </div>
     </div>
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-        <h2 class="text-lg font-semibold mb-4 flex items-center">
-            <i class="fas fa-terminal mr-2 text-yellow-500"></i> One-Time Setup (PC Required)
-        </h2>
 
-        <div class="bg-slate-900 p-4 rounded-lg mb-4 text-sm text-slate-300">
-            <p class="mb-2"><strong class="text-white">Why PC?</strong> The "AppCookie" is secured (HttpOnly) and cannot
-                be copied by a phone.</p>
-            <p class="mb-2">Do this <strong>once</strong> on your computer. It will last for a year.</p>
-
-            <ol class="list-decimal list-inside space-y-2 ml-1">
-                <li>Log in to <span class="text-blue-400">one.prat.idf.il</span> on your computer.</li>
-                <li>Press <strong>F12</strong> to open Developer Tools -> <strong>Network</strong> tab.</li>
-                <li>Refresh the page.</li>
-                <li>Right-click the first request (usually "one.prat.idf.il").</li>
-                <li>Select <strong>Copy</strong> → <strong>Copy as cURL (bash)</strong>.</li>
-                <li>Paste the massive text block below.</li>
-            </ol>
-        </div>
-
-        <form action="{% url 'update_cookies' %}" method="POST">
-            {% csrf_token %}
-            <textarea name="cookie_json" rows="5"
-                placeholder="curl 'https://one.prat.idf.il/...' -H 'Cookie: AppCookie=...'"
-                class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none text-slate-400"></textarea>
-            <div class="mt-3 flex justify-end">
-                <button type="submit"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-bold transition">
-                    Import Session
-                </button>
+    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 transition-all duration-300 shadow-xl">
+        <div class="flex justify-between items-start">
+            <div>
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fas fa-key mr-2 text-yellow-500"></i> Session Configuration
+                </h2>
+                <div class="mt-1 text-xs">
+                    {% if has_cookies %}
+                    <span class="text-green-400 font-bold flex items-center">
+                        <i class="fas fa-check-circle mr-1"></i> Session Active
+                    </span>
+                    {% else %}
+                    <span class="text-red-400 font-bold flex items-center">
+                        <i class="fas fa-times-circle mr-1"></i> Missing Cookies
+                    </span>
+                    {% endif %}
+                </div>
             </div>
-        </form>
 
-        <div class="mt-4 text-xs">
-            Status:
             {% if has_cookies %}
-            <span class="text-green-400 font-bold">● Active (Ready for Mobile Use)</span>
-            {% else %}
-            <span class="text-red-400 font-bold">● Missing Session</span>
+            <button onclick="toggleCookieForm()" id="cookieToggleBtn"
+                class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg transition border border-slate-600">
+                Update Session
+            </button>
             {% endif %}
         </div>
-    </div>
 
-    <script>
-        function copyToClipboard() {
-            var copyText = document.getElementById("bookmarkCode");
-            copyText.select();
-            copyText.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(copyText.value);
-            alert("Code copied! Now create a bookmark with this as the URL.");
-        }
-    </script>
+        <div id="cookieFormContainer"
+            class="{% if has_cookies %}hidden{% endif %} mt-6 pt-6 border-t border-slate-700 animate-fade-in">
+            <div class="text-sm text-slate-300 mb-4">
+                Import cookies using one of the methods below:
+            </div>
+
+            <form action="{% url 'update_cookies' %}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% csrf_token %}
+
+                <div
+                    class="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors bg-slate-900/50 group">
+                    <i
+                        class="fas fa-file-code text-3xl text-slate-500 mb-2 group-hover:text-blue-400 transition-colors"></i>
+                    <p class="text-sm font-medium text-slate-300">Upload cookies.json</p>
+                    <p class="text-xs text-slate-500 mb-3">From "EditThisCookie" extension</p>
+                    <input type="file" name="cookie_file" accept=".json,.txt" class="block w-full text-sm text-slate-400
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-xs file:font-semibold
+                        file:bg-blue-600 file:text-white
+                        hover:file:bg-blue-700
+                        cursor-pointer" />
+                </div>
+
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-slate-700"></div>
+                    <span class="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase">Or paste text</span>
+                    <div class="flex-grow border-t border-slate-700"></div>
+                </div>
+
+                <textarea name="cookie_json" rows="3" placeholder="Paste JSON or cURL command here..."
+                    class="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none text-slate-300"></textarea>
+
+                <div class="flex justify-end space-x-3">
+                    {% if has_cookies %}
+                    <button type="button" onclick="toggleCookieForm()"
+                        class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm transition text-slate-400">
+                        Cancel
+                    </button>
+                    {% endif %}
+                    <button type="submit"
+                        class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition font-bold text-white">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+
+<script>
+    function toggleCookieForm() {
+        const container = document.getElementById('cookieFormContainer');
+        const btn = document.getElementById('cookieToggleBtn');
+
+        if (container.classList.contains('hidden')) {
+            // OPEN
+            container.classList.remove('hidden');
+            if (btn) btn.classList.add('hidden');
+        } else {
+            // CLOSE
+            container.classList.add('hidden');
+            if (btn) btn.classList.remove('hidden');
+        }
+    }
+</script>
 {% endblock %}
